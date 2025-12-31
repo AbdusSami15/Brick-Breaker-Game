@@ -1,70 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <title>Breakout Week 2</title>
-    <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-        background: #111;
-        color: #eee;
-        height: 100%;
-        width: 100%;
-        overflow: hidden;
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      }
-      .root {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 16px;
-        box-sizing: border-box;
-      }
-      canvas {
-        display: block;
-        image-rendering: pixelated;
-        background: #000;
-        border-radius: 8px;
-      }
-      .topbar {
-        position: fixed;
-        top: 8px;
-        right: 8px;
-        left: 8px;
-        display: flex;
-        justify-content: flex-end;
-        gap: 8px;
-        pointer-events: none;
-      }
-      .btn {
-        pointer-events: auto;
-        appearance: none;
-        border: 0;
-        padding: 8px 12px;
-        border-radius: 6px;
-        font-weight: 600;
-        background: #2d2d2d;
-        color: #f1f1f1;
-        cursor: pointer;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-      }
-      .btn:active {
-        transform: translateY(1px);
-      }
-    </style>
-  </head>
-  <body>
-    <div class="topbar">
-      <button id="pauseBtn" class="btn" type="button" aria-label="Pause or Resume">Pause</button>
-    </div>
-    <div class="root">
-      <canvas id="game" width="800" height="500"></canvas>
-    </div>
-    <script src="main.js"></script>
-  </body>
-  </html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+  <title>Breakout - Week 2</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0b0b10; height: 100%; overflow: hidden; }
+    #wrap { height: 100%; display: grid; place-items: center; }
+    canvas { background: #111827; touch-action: none; border-radius: 12px; }
+    #uiOverlay {
+      position: fixed; inset: 0;
+      display: grid; place-items: center;
+      pointer-events: none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: white;
+    }
+    .panel {
+      pointer-events: auto;
+      background: rgba(0,0,0,0.6);
+      padding: 18px 20px;
+      border-radius: 12px;
+      text-align: center;
+      width: min(360px, 90vw);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    }
+    .panel h1 { margin: 0 0 8px; font-size: 22px; }
+    .panel p { margin: 0 0 14px; opacity: 0.9; line-height: 1.4; }
+    .panel button {
+      width: 100%;
+      padding: 12px 14px;
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      background: #22c55e;
+      color: #0b0b10;
+    }
+    .panel button:active { transform: translateY(1px); }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game" width="800" height="500"></canvas>
+  </div>
 
+  <div id="uiOverlay">
+    <div class="panel" id="panel">
+      <h1 id="title">Breakout</h1>
+      <p id="desc">Move paddle with mouse/touch. Break all bricks to win.</p>
+      <button id="btn">Start</button>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
