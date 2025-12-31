@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+  <title>Breakout - Week 2</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0b0b10; height: 100%; overflow: hidden; }
+    #wrap { height: 100%; display: grid; place-items: center; }
+    canvas { background: #111827; touch-action: none; border-radius: 12px; }
+    #uiOverlay {
+      position: fixed; inset: 0;
+      display: grid; place-items: center;
+      pointer-events: none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: white;
+    }
+    .panel {
+      pointer-events: auto;
+      background: rgba(0,0,0,0.6);
+      padding: 18px 20px;
+      border-radius: 12px;
+      text-align: center;
+      width: min(360px, 90vw);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    }
+    .panel h1 { margin: 0 0 8px; font-size: 22px; }
+    .panel p { margin: 0 0 14px; opacity: 0.9; line-height: 1.4; }
+    .panel button {
+      width: 100%;
+      padding: 12px 14px;
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      background: #22c55e;
+      color: #0b0b10;
+    }
+    .panel button:active { transform: translateY(1px); }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game" width="800" height="500"></canvas>
+  </div>
+
+  <div id="uiOverlay">
+    <div class="panel" id="panel">
+      <h1 id="title">Breakout</h1>
+      <p id="desc">Move paddle with mouse/touch. Break all bricks to win.</p>
+      <button id="btn">Start</button>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
