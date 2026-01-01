@@ -5,9 +5,29 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
   <title>Breakout - Week 2</title>
   <style>
-    html, body { margin: 0; padding: 0; background: #0b0b10; height: 100%; overflow: hidden; }
-    #wrap { height: 100%; display: grid; place-items: center; }
-    canvas { background: #111827; touch-action: none; border-radius: 12px; }
+    /* Mobile-safe full-screen sizing (handles iOS/Android address bars). */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #0b0b10;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      -webkit-text-size-adjust: 100%;
+    }
+    #wrap {
+      width: 100vw;
+      height: 100dvh; /* dynamic viewport height */
+    }
+
+    /* Canvas is positioned/centered by JS; keep it block-level and non-stretching. */
+    canvas {
+      display: block;
+      background: #111827;
+      touch-action: none;
+      border-radius: 12px;
+      image-rendering: auto;
+    }
     #pauseBtn {
       position: fixed;
       top: 10px;
@@ -137,12 +157,6 @@
     <div class="panel" id="panel">
       <h1 id="title">Breakout</h1>
       <p id="desc">Move paddle with mouse/touch. Break all bricks to win.</p>
-      <div class="opt">
-        <label>
-          <input type="checkbox" id="twoPlayersToggle" />
-          2 Players (Co-op)
-        </label>
-      </div>
       <button id="btn">Start</button>
     </div>
   </div>

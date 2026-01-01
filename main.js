@@ -10,7 +10,6 @@ const panel = document.getElementById("panel");
 const titleEl = document.getElementById("title");
 const descEl = document.getElementById("desc");
 const btnEl = document.getElementById("btn");
-const twoPlayersToggle = document.getElementById("twoPlayersToggle");
 
 const pauseOverlay = document.getElementById("pauseOverlay");
 const resumeBtn = document.getElementById("resumeBtn");
@@ -153,17 +152,10 @@ let lives = 3;
 let level = 1;
 let highScore = 0;
 const HS_KEY = "bb2_highscore";
-const TWO_KEY = "bb2_two_players";
 try {
   const savedHS = localStorage.getItem(HS_KEY);
   if (savedHS != null) highScore = parseInt(savedHS, 10) || 0;
 } catch (e) {}
-let twoPlayers = false;
-try {
-  const savedTwo = localStorage.getItem(TWO_KEY);
-  if (savedTwo != null) twoPlayers = savedTwo === "1";
-} catch (e) {}
-if (twoPlayersToggle) twoPlayersToggle.checked = twoPlayers;
 
 let currentLevelDef = LEVELS[0];
 let levelGeom = { rows: 0, cols: 0, brickW: 0 };
@@ -175,18 +167,8 @@ const paddle = {
   w: PADDLE.w,
   h: PADDLE.h,
 };
-
-// Second paddle (top) for 2-player co-op (keyboard A/D)
-const paddle2 = {
-  x: (WORLD.w - PADDLE.w) * 0.5,
-  y: WORLD.h - PADDLE.yOffset - 26,
-  w: PADDLE.w,
-  h: PADDLE.h,
-};
 let p1Left = false;
 let p1Right = false;
-let p2Left = false;
-let p2Right = false;
 
 // Balls (vx/vy are in px/sec)
 let balls = [];
@@ -215,6 +197,9 @@ let lastTime = 0;
 // Input
 let pointerX = paddle.x + paddle.w * 0.5;
 let isPointerDown = false;
+let pointerTargetX = pointerX;
+let pointerIsTouch = false;
+let touchDragging = false;
 
 // Audio
 let audioCtx = null;
@@ -254,6 +239,10 @@ function rectCircleCollide(rx, ry, rw, rh, cx, cy, cr) {
 function normalize(vx, vy) {
   const len = Math.hypot(vx, vy) || 1;
   return { x: vx / len, y: vy / len };
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
 }
 
 function initBackground() {
@@ -440,7 +429,6 @@ function applyPowerUp(type) {
   if (type === "WIDE") {
     paddleWTimer = POWERUPS.duration;
     paddle.w = 170;
-    if (twoPlayers) paddle2.w = 170;
   } else if (type === "SPEED") {
     speedBoostTimer = POWERUPS.duration;
     for (let i = 0; i < balls.length; i++) {
@@ -694,15 +682,17 @@ function sfxBrickHit(intensity = 0.5, strong = false) {
 }
 function sfxBrickBreak(intensity = 0.7, strong = false) {
   const t = clamp(intensity, 0, 1);
-  const bandFreq = (strong ? 1400 : 1800) + t * (strong ? 300 : 500);
-  const noiseGain = 0.045 + t * 0.04;
-  const toneGain = 0.05 + t * 0.04;
-  const base = (strong ? 840 : 1040) + t * (strong ? 60 : 100);
-  playNoiseBurst({ duration: 0.07 + t * 0.05, filterType: "bandpass", filterFreq: bandFreq, filterQ: 0.9, peakGain: noiseGain, wet: 0.18 });
-  // main crack
-  playTone({ startFreq: base, endFreq: base * 0.55, duration: 0.1 + t * 0.04, type: "sawtooth", peakGain: toneGain, attack: 0.002, decay: 0.06, sustain: 0.22, release: 0.06, wet: 0.18 });
-  // subtle bright overtone
-  setTimeout(() => playTone({ startFreq: base * 1.35, endFreq: base * 0.9, duration: 0.08, type: "triangle", peakGain: toneGain * 0.5, attack: 0.001, decay: 0.04, sustain: 0.2, release: 0.04, wet: 0.2 }), 8);
+  // Glass break: NO crack/noise, only bright shatter pings
+  const gain = 0.06 + t * 0.08;
+  const base = (strong ? 1150 : 1450) + t * 240;
+
+  // Main shatter cluster
+  playTone({ startFreq: base * 1.15, endFreq: base * 0.9, duration: 0.06, type: "sine", peakGain: gain, attack: 0.001, decay: 0.025, sustain: 0.08, release: 0.03, wet: 0.16 });
+  setTimeout(() => playTone({ startFreq: base * 1.55, endFreq: base * 1.2, duration: 0.05, type: "triangle", peakGain: gain * 0.75, attack: 0.001, decay: 0.022, sustain: 0.07, release: 0.028, wet: 0.18 }), 8);
+  setTimeout(() => playTone({ startFreq: base * 1.95, endFreq: base * 1.55, duration: 0.045, type: "sine", peakGain: gain * 0.55, attack: 0.001, decay: 0.02, sustain: 0.06, release: 0.025, wet: 0.2 }), 16);
+
+  // Tiny sparkle tail
+  setTimeout(() => playTone({ startFreq: base * 2.35, endFreq: base * 2.0, duration: 0.04, type: "sine", peakGain: gain * 0.35, attack: 0.001, decay: 0.018, sustain: 0.05, release: 0.02, wet: 0.22 }), 26);
 }
 function sfxLevel()  {
   playTone({ startFreq: 660, endFreq: 820, duration: 0.09, type: "sine", peakGain: 0.045, attack: 0.003, decay: 0.05, sustain: 0.3, release: 0.05, wet: 0.2 });
@@ -797,12 +787,6 @@ function resetBallOnPaddle() {
 function startGame(resetAll = true) {
   ensureAudio();
 
-  // Load settings
-  if (twoPlayersToggle) {
-    twoPlayers = !!twoPlayersToggle.checked;
-    try { localStorage.setItem(TWO_KEY, twoPlayers ? "1" : "0"); } catch (e) {}
-  }
-
   if (resetAll) {
     score = 0;
     lives = 3;
@@ -812,10 +796,6 @@ function startGame(resetAll = true) {
   paddle.x = (WORLD.w - PADDLE.w) * 0.5;
   paddle.w = PADDLE.w;
   pointerX = paddle.x + paddle.w * 0.5;
-
-  paddle2.x = (WORLD.w - PADDLE.w) * 0.5;
-  paddle2.w = PADDLE.w;
-  paddle2.y = paddle.y - 26;
 
   powerUps = [];
   paddleWTimer = 0;
@@ -864,12 +844,15 @@ function getCanvasRelativeX(clientX) {
 }
 
 canvas.addEventListener("mousemove", (e) => {
+  pointerIsTouch = false;
   pointerX = getCanvasRelativeX(e.clientX);
+  pointerTargetX = pointerX;
 });
 
 canvas.addEventListener("mousedown", (e) => {
   isPointerDown = true;
-  pointerX = getCanvasRelativeX(e.clientX);
+  pointerIsTouch = false;
+  // Don't update target on click — only on move
 });
 
 window.addEventListener("mouseup", () => {
@@ -878,14 +861,17 @@ window.addEventListener("mouseup", () => {
 
 canvas.addEventListener("touchstart", (e) => {
   isPointerDown = true;
-  const t = e.changedTouches[0];
-  pointerX = getCanvasRelativeX(t.clientX);
+  pointerIsTouch = true;
+  touchDragging = false; // Not dragging yet, just touched
   e.preventDefault();
 }, { passive: false });
 
 canvas.addEventListener("touchmove", (e) => {
   const t = e.changedTouches[0];
+  pointerIsTouch = true;
+  touchDragging = true; // Now actively dragging
   pointerX = getCanvasRelativeX(t.clientX);
+  pointerTargetX = pointerX;
   e.preventDefault();
 }, { passive: false });
 
@@ -901,8 +887,6 @@ window.addEventListener("keydown", (e) => {
   }
   if (e.code === "ArrowLeft") p1Left = true;
   if (e.code === "ArrowRight") p1Right = true;
-  if (e.code === "KeyA") p2Left = true;
-  if (e.code === "KeyD") p2Right = true;
   if (e.code === "Escape") {
     if (state === GAME_STATE.PLAYING) pauseGame();
     else if (state === GAME_STATE.PAUSED) resumeGame();
@@ -916,8 +900,6 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("keyup", (e) => {
   if (e.code === "ArrowLeft") p1Left = false;
   if (e.code === "ArrowRight") p1Right = false;
-  if (e.code === "KeyA") p2Left = false;
-  if (e.code === "KeyD") p2Right = false;
 });
 
 // Button overlay
@@ -958,20 +940,38 @@ quitBtn.addEventListener("click", () => {
 
 // Responsive canvas CSS scaling
 function resizeCanvasCSS() {
-  const margin = 16;
-  const maxW = Math.max(0, window.innerWidth - margin * 2);
-  const maxH = Math.max(0, window.innerHeight - margin * 2);
-  const aspect = canvas.width / canvas.height;
-  let cssW = maxW;
-  let cssH = Math.floor(cssW / aspect);
-  if (cssH > maxH) {
-    cssH = maxH;
-    cssW = Math.floor(cssH * aspect);
-  }
+  // Prefer the visible viewport on mobile (address bar-safe).
+  const vvW = (window.visualViewport && window.visualViewport.width) ? window.visualViewport.width : 0;
+  const vvH = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : 0;
+  const docW = document.documentElement ? document.documentElement.clientWidth : 0;
+  const docH = document.documentElement ? document.documentElement.clientHeight : 0;
+  const viewW = vvW || window.innerWidth || docW;
+  const viewH = vvH || window.innerHeight || docH;
+  const smallScreen = Math.min(viewW, viewH) < 700;
+  const margin = smallScreen ? 0 : 16;
+  const maxW = Math.max(0, viewW - margin * 2);
+  const maxH = Math.max(0, viewH - margin * 2);
+
+  // Always keep aspect ratio (NO stretch). Use "contain" so nothing is cropped.
+  const scale = Math.min(maxW / canvas.width, maxH / canvas.height);
+  const cssW = Math.max(1, Math.floor(canvas.width * scale));
+  const cssH = Math.max(1, Math.floor(canvas.height * scale));
+
+  // Always center via fixed positioning. This avoids the "shifted-left" bug on some mobiles.
+  canvas.style.position = "fixed";
+  canvas.style.left = "50%";
+  canvas.style.top = "50%";
+  canvas.style.transform = "translate(-50%, -50%)";
   canvas.style.width = cssW + "px";
   canvas.style.height = cssH + "px";
+  canvas.style.borderRadius = smallScreen ? "0px" : "12px";
 }
 window.addEventListener("resize", resizeCanvasCSS);
+window.addEventListener("orientationchange", resizeCanvasCSS);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", resizeCanvasCSS);
+  window.visualViewport.addEventListener("scroll", resizeCanvasCSS);
+}
 resizeCanvasCSS();
 
 // --------------------
@@ -985,7 +985,6 @@ function update(dt) {
     paddleWTimer = Math.max(0, paddleWTimer - dt);
     if (paddleWTimer === 0) {
       paddle.w = PADDLE.w;
-      paddle2.w = PADDLE.w;
     }
   }
   if (speedBoostTimer > 0) {
@@ -996,17 +995,23 @@ function update(dt) {
   const p1Dir = (p1Right ? 1 : 0) - (p1Left ? 1 : 0);
   if (p1Dir !== 0) {
     paddle.x = clamp(paddle.x + p1Dir * PADDLE.speed * dt, 0, WORLD.w - paddle.w);
+  } else if (pointerIsTouch) {
+    // Touch: only move paddle while actively dragging (finger moved after touch)
+    if (touchDragging) {
+      const desiredX = pointerTargetX - paddle.w * 0.5;
+      const clampedDesired = clamp(desiredX, 0, WORLD.w - paddle.w);
+      const follow = 10;
+      const a = 1 - Math.exp(-follow * dt);
+      paddle.x = clamp(lerp(paddle.x, clampedDesired, a), 0, WORLD.w - paddle.w);
+    }
+    // else: just touched without moving — paddle stays put
   } else {
-    const targetX = pointerX - paddle.w * 0.5;
-    paddle.x = clamp(targetX, 0, WORLD.w - paddle.w);
+    // Mouse: always follow pointer
+    const desiredX = pointerTargetX - paddle.w * 0.5;
+    const clampedDesired = clamp(desiredX, 0, WORLD.w - paddle.w);
+    paddle.x = clampedDesired;
   }
 
-  // Second paddle (keyboard) in 2-player mode
-  if (twoPlayers) {
-    paddle2.y = paddle.y - 26;
-    const dir = (p2Right ? 1 : 0) - (p2Left ? 1 : 0);
-    paddle2.x = clamp(paddle2.x + dir * PADDLE.speed * dt, 0, WORLD.w - paddle2.w);
-  }
 
   // Power-ups fall and collect
   for (let i = powerUps.length - 1; i >= 0; i--) {
@@ -1100,22 +1105,6 @@ function update(dt) {
         sfxPaddle(impactFromSpeed(ball.speed));
       }
 
-      // Companion paddle collision (2-player co-op)
-      if (twoPlayers && rectCircleCollide(paddle2.x, paddle2.y, paddle2.w, paddle2.h, ball.x, ball.y, ball.r)) {
-        ball.y = paddle2.y - ball.r - 0.5;
-
-        const hit = (ball.x - (paddle2.x + paddle2.w * 0.5)) / (paddle2.w * 0.5);
-        const clampedHit = clamp(hit, -1, 1);
-        const maxAngle = (60 * Math.PI) / 180;
-        const angle = clampedHit * maxAngle;
-
-        // reflect upward (vy negative)
-        const dir2 = normalize(Math.sin(angle), -Math.cos(angle));
-        ball.vx = dir2.x * ball.speed;
-        ball.vy = dir2.y * ball.speed;
-
-        sfxPaddle(impactFromSpeed(ball.speed));
-      }
 
       // Brick collisions: check only nearby cells
       const bw = levelGeom.brickW;
@@ -1208,14 +1197,6 @@ function draw() {
   // Paddle
   drawPaddleBody(paddle, "P1");
 
-  // Second paddle (2P co-op)
-  if (twoPlayers) {
-    ctx.save();
-    ctx.globalAlpha = 0.92;
-    drawPaddleBody(paddle2, "P2");
-    ctx.restore();
-  }
-
   // Power-ups
   for (let i = 0; i < powerUps.length; i++) {
     const p = powerUps[i];
@@ -1267,7 +1248,6 @@ function draw() {
   ctx.fillText(`Lives: ${lives}`, HUD.padding + 120, 26);
   ctx.fillText(`Level: ${level}`, HUD.padding + 220, 26);
   ctx.fillText(`High: ${highScore}`, HUD.padding + 320, 26);
-  if (twoPlayers) ctx.fillText("2P", HUD.padding + 430, 26);
 
   // Optional hint while playing
   if (state === GAME_STATE.PLAYING) {
