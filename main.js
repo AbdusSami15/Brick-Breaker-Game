@@ -947,24 +947,33 @@ function resizeCanvasCSS() {
   const docH = document.documentElement ? document.documentElement.clientHeight : 0;
   const viewW = vvW || window.innerWidth || docW;
   const viewH = vvH || window.innerHeight || docH;
-  const smallScreen = Math.min(viewW, viewH) < 700;
-  const margin = smallScreen ? 0 : 16;
-  const maxW = Math.max(0, viewW - margin * 2);
-  const maxH = Math.max(0, viewH - margin * 2);
+  const isMobile = Math.min(viewW, viewH) < 700 || "ontouchstart" in window;
 
-  // Always keep aspect ratio (NO stretch). Use "contain" so nothing is cropped.
-  const scale = Math.min(maxW / canvas.width, maxH / canvas.height);
-  const cssW = Math.max(1, Math.floor(canvas.width * scale));
-  const cssH = Math.max(1, Math.floor(canvas.height * scale));
+  let cssW, cssH;
 
-  // Always center via fixed positioning. This avoids the "shifted-left" bug on some mobiles.
+  if (isMobile) {
+    // MOBILE: Fill entire screen using "cover" scaling (no black bars, may crop edges)
+    const scale = Math.max(viewW / canvas.width, viewH / canvas.height);
+    cssW = Math.floor(canvas.width * scale);
+    cssH = Math.floor(canvas.height * scale);
+  } else {
+    // DESKTOP: "Contain" scaling with margins (shows full game, may have letterbox)
+    const margin = 16;
+    const maxW = Math.max(0, viewW - margin * 2);
+    const maxH = Math.max(0, viewH - margin * 2);
+    const scale = Math.min(maxW / canvas.width, maxH / canvas.height);
+    cssW = Math.max(1, Math.floor(canvas.width * scale));
+    cssH = Math.max(1, Math.floor(canvas.height * scale));
+  }
+
+  // Center via fixed positioning
   canvas.style.position = "fixed";
   canvas.style.left = "50%";
   canvas.style.top = "50%";
   canvas.style.transform = "translate(-50%, -50%)";
   canvas.style.width = cssW + "px";
   canvas.style.height = cssH + "px";
-  canvas.style.borderRadius = smallScreen ? "0px" : "12px";
+  canvas.style.borderRadius = isMobile ? "0px" : "12px";
 }
 window.addEventListener("resize", resizeCanvasCSS);
 window.addEventListener("orientationchange", resizeCanvasCSS);

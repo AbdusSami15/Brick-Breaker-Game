@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <title>Breakout - Week 2</title>
   <style>
-    /* Mobile-safe full-screen sizing (handles iOS/Android address bars). */
+    /* Mobile-safe full-screen sizing (handles iOS/Android address bars & notches). */
     html, body {
       margin: 0;
       padding: 0;
@@ -14,10 +14,16 @@
       height: 100%;
       overflow: hidden;
       -webkit-text-size-adjust: 100%;
+      /* Safe area for notch devices */
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
     #wrap {
+      position: fixed;
+      inset: 0;
       width: 100vw;
-      height: 100dvh; /* dynamic viewport height */
+      height: 100vh;
+      height: 100dvh; /* dynamic viewport height fallback */
+      overflow: hidden;
     }
 
     /* Canvas is positioned/centered by JS; keep it block-level and non-stretching. */
