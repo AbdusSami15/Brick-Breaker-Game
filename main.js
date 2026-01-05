@@ -908,8 +908,12 @@ btnEl.addEventListener("click", async () => {
   ensureAudio();
   if (audioCtx && audioCtx.state !== "running") await audioCtx.resume();
 
-  if (state === GAME_STATE.START) startGame(true);
-  else if (state === GAME_STATE.GAME_OVER || state === GAME_STATE.WIN) startGame(true);
+  if (state === GAME_STATE.START) {
+    requestFullscreen(); // Go fullscreen when starting
+    startGame(true);
+  } else if (state === GAME_STATE.GAME_OVER || state === GAME_STATE.WIN) {
+    startGame(true);
+  }
 });
 
 // Initial overlay
@@ -933,38 +937,69 @@ restartBtn.addEventListener("click", () => {
 quitBtn.addEventListener("click", () => {
   if (state !== GAME_STATE.PAUSED) return;
   state = GAME_STATE.START;
+  exitFullscreenMode(); // Exit fullscreen when quitting to start
   setPauseOverlayVisible(false);
   setPauseButtonText();
   setOverlay(true, "Breakout", `Press Start. Use mouse/touch to move the paddle.  Best: ${highScore}`, "Start");
 });
 
+// Track if game is in fullscreen playing mode
+let isFullscreenMode = false;
+
+// Request fullscreen (cross-browser)
+function requestFullscreen() {
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if (req) {
+    req.call(el).catch(() => {}); // Ignore errors (user denied, etc.)
+  }
+  isFullscreenMode = true;
+  resizeCanvasCSS();
+}
+
+// Exit fullscreen mode (for quit)
+function exitFullscreenMode() {
+  isFullscreenMode = false;
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+    if (exit) exit.call(document).catch(() => {});
+  }
+  resizeCanvasCSS();
+}
+
 // Responsive canvas CSS scaling
 function resizeCanvasCSS() {
-  // Prefer the visible viewport on mobile (address bar-safe).
-  const vvW = (window.visualViewport && window.visualViewport.width) ? window.visualViewport.width : 0;
-  const vvH = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : 0;
-  const docW = document.documentElement ? document.documentElement.clientWidth : 0;
-  const docH = document.documentElement ? document.documentElement.clientHeight : 0;
-  const viewW = vvW || window.innerWidth || docW;
-  const viewH = vvH || window.innerHeight || docH;
-  const smallScreen = Math.min(viewW, viewH) < 700;
-  const margin = smallScreen ? 0 : 16;
-  const maxW = Math.max(0, viewW - margin * 2);
-  const maxH = Math.max(0, viewH - margin * 2);
+  const vvW = window.visualViewport?.width || window.innerWidth;
+  const vvH = window.visualViewport?.height || window.innerHeight;
 
-  // Always keep aspect ratio (NO stretch). Use "contain" so nothing is cropped.
-  const scale = Math.min(maxW / canvas.width, maxH / canvas.height);
-  const cssW = Math.max(1, Math.floor(canvas.width * scale));
-  const cssH = Math.max(1, Math.floor(canvas.height * scale));
+  let cssW, cssH, borderRadius;
 
-  // Always center via fixed positioning. This avoids the "shifted-left" bug on some mobiles.
+  if (isFullscreenMode) {
+    // PLAYING: Contain mode - fits entire game, nothing cut off
+    // Background color matches game so no visible "black bars"
+    const scale = Math.min(vvW / canvas.width, vvH / canvas.height);
+    cssW = Math.floor(canvas.width * scale);
+    cssH = Math.floor(canvas.height * scale);
+    borderRadius = "0px";
+  } else {
+    // START/MENU: Contain mode with margins - nicely centered card
+    const margin = Math.min(vvW, vvH) < 500 ? 20 : 40;
+    const maxW = vvW - margin * 2;
+    const maxH = vvH - margin * 2;
+    const scale = Math.min(maxW / canvas.width, maxH / canvas.height);
+    cssW = Math.floor(canvas.width * scale);
+    cssH = Math.floor(canvas.height * scale);
+    borderRadius = "16px";
+  }
+
   canvas.style.position = "fixed";
   canvas.style.left = "50%";
   canvas.style.top = "50%";
   canvas.style.transform = "translate(-50%, -50%)";
   canvas.style.width = cssW + "px";
   canvas.style.height = cssH + "px";
-  canvas.style.borderRadius = smallScreen ? "0px" : "12px";
+  canvas.style.borderRadius = borderRadius;
+  canvas.style.boxShadow = isFullscreenMode ? "none" : "0 8px 40px rgba(0,0,0,0.6)";
 }
 window.addEventListener("resize", resizeCanvasCSS);
 window.addEventListener("orientationchange", resizeCanvasCSS);
@@ -972,6 +1007,21 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener("resize", resizeCanvasCSS);
   window.visualViewport.addEventListener("scroll", resizeCanvasCSS);
 }
+
+// Handle manual fullscreen exit (e.g., user presses Escape)
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    isFullscreenMode = false;
+    resizeCanvasCSS();
+  }
+});
+document.addEventListener("webkitfullscreenchange", () => {
+  if (!document.webkitFullscreenElement) {
+    isFullscreenMode = false;
+    resizeCanvasCSS();
+  }
+});
+
 resizeCanvasCSS();
 
 // --------------------

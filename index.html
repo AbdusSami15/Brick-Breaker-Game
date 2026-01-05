@@ -2,31 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <title>Breakout - Week 2</title>
   <style>
-    /* Mobile-safe full-screen sizing (handles iOS/Android address bars). */
+    /* Full-screen: background matches game so letterboxing is invisible */
     html, body {
       margin: 0;
       padding: 0;
-      background: #0b0b10;
+      background: linear-gradient(135deg, #0a0e17 0%, #111827 50%, #0d1320 100%);
       width: 100%;
       height: 100%;
       overflow: hidden;
       -webkit-text-size-adjust: 100%;
     }
     #wrap {
-      width: 100vw;
-      height: 100dvh; /* dynamic viewport height */
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      background: inherit;
     }
 
-    /* Canvas is positioned/centered by JS; keep it block-level and non-stretching. */
+    /* Canvas is styled dynamically by JS based on game state */
     canvas {
       display: block;
       background: #111827;
       touch-action: none;
-      border-radius: 12px;
-      image-rendering: auto;
+      transition: border-radius 0.3s ease, box-shadow 0.3s ease;
     }
     #pauseBtn {
       position: fixed;
