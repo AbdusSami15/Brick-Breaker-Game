@@ -946,25 +946,52 @@ quitBtn.addEventListener("click", () => {
 // Track if game is in fullscreen playing mode
 let isFullscreenMode = false;
 
+// Lock screen to landscape (cross-browser, must be called from user gesture)
+async function lockLandscape() {
+  // Method 1: Modern Screen Orientation API
+  if (screen.orientation && screen.orientation.lock) {
+    try {
+      await screen.orientation.lock("landscape");
+      return true;
+    } catch (e) {
+      // Try specific landscape type
+      try {
+        await screen.orientation.lock("landscape-primary");
+        return true;
+      } catch (e2) {}
+    }
+  }
+  
+  // Method 2: Older lockOrientation API (some Android browsers)
+  const lockFn = screen.lockOrientation || screen.mozLockOrientation || screen.msLockOrientation;
+  if (lockFn) {
+    try {
+      lockFn.call(screen, "landscape");
+      return true;
+    } catch (e) {}
+  }
+  
+  return false;
+}
+
 // Request fullscreen + lock to landscape (cross-browser)
 async function requestFullscreen() {
   const el = document.documentElement;
   const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
   
+  // Must enter fullscreen FIRST, then lock orientation (browser requirement)
   try {
-    if (req) await req.call(el);
-    
-    // Try to lock orientation to landscape on mobile
-    if (screen.orientation && screen.orientation.lock) {
-      try {
-        await screen.orientation.lock("landscape");
-      } catch (e) {
-        // Orientation lock not supported or denied - that's okay
-      }
+    if (req) {
+      await req.call(el);
+      // Small delay to ensure fullscreen is active before locking
+      await new Promise(r => setTimeout(r, 100));
     }
   } catch (e) {
-    // Fullscreen denied - continue anyway
+    // Fullscreen denied - still try to lock orientation
   }
+  
+  // Now try to lock to landscape
+  await lockLandscape();
   
   isFullscreenMode = true;
   resizeCanvasCSS();
@@ -974,12 +1001,14 @@ async function requestFullscreen() {
 async function exitFullscreenMode() {
   isFullscreenMode = false;
   
-  // Unlock orientation
-  if (screen.orientation && screen.orientation.unlock) {
-    try {
+  // Unlock orientation (all methods)
+  try {
+    if (screen.orientation && screen.orientation.unlock) {
       screen.orientation.unlock();
-    } catch (e) {}
-  }
+    }
+    const unlockFn = screen.unlockOrientation || screen.mozUnlockOrientation || screen.msUnlockOrientation;
+    if (unlockFn) unlockFn.call(screen);
+  } catch (e) {}
   
   if (document.fullscreenElement || document.webkitFullscreenElement) {
     const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
