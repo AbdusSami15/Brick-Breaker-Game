@@ -133,9 +133,55 @@
       color: #0b0b10;
     }
     .panel button:active { transform: translateY(1px); }
+
+    /* Rotate device prompt for portrait mobile */
+    #rotatePrompt {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, #0a0e17 0%, #111827 50%, #0d1320 100%);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    #rotatePrompt .icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+      animation: rotateIcon 1.5s ease-in-out infinite;
+    }
+    @keyframes rotateIcon {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(90deg); }
+    }
+    #rotatePrompt h2 {
+      margin: 0 0 10px;
+      font-size: 24px;
+    }
+    #rotatePrompt p {
+      margin: 0;
+      opacity: 0.8;
+      font-size: 16px;
+    }
+    /* Show rotate prompt only on mobile portrait */
+    @media (max-width: 900px) and (orientation: portrait) {
+      #rotatePrompt { display: flex; }
+      #wrap, #pauseBtn, #uiOverlay, #pauseOverlay { display: none !important; }
+    }
   </style>
 </head>
 <body>
+  <!-- Rotate device prompt -->
+  <div id="rotatePrompt">
+    <div class="icon">📱</div>
+    <h2>Rotate Your Device</h2>
+    <p>This game is best played in landscape mode</p>
+  </div>
+
   <div id="wrap">
     <canvas id="game" width="800" height="500"></canvas>
   </div>

@@ -946,23 +946,48 @@ quitBtn.addEventListener("click", () => {
 // Track if game is in fullscreen playing mode
 let isFullscreenMode = false;
 
-// Request fullscreen (cross-browser)
-function requestFullscreen() {
+// Request fullscreen + lock to landscape (cross-browser)
+async function requestFullscreen() {
   const el = document.documentElement;
   const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-  if (req) {
-    req.call(el).catch(() => {}); // Ignore errors (user denied, etc.)
+  
+  try {
+    if (req) await req.call(el);
+    
+    // Try to lock orientation to landscape on mobile
+    if (screen.orientation && screen.orientation.lock) {
+      try {
+        await screen.orientation.lock("landscape");
+      } catch (e) {
+        // Orientation lock not supported or denied - that's okay
+      }
+    }
+  } catch (e) {
+    // Fullscreen denied - continue anyway
   }
+  
   isFullscreenMode = true;
   resizeCanvasCSS();
 }
 
 // Exit fullscreen mode (for quit)
-function exitFullscreenMode() {
+async function exitFullscreenMode() {
   isFullscreenMode = false;
+  
+  // Unlock orientation
+  if (screen.orientation && screen.orientation.unlock) {
+    try {
+      screen.orientation.unlock();
+    } catch (e) {}
+  }
+  
   if (document.fullscreenElement || document.webkitFullscreenElement) {
     const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
-    if (exit) exit.call(document).catch(() => {});
+    if (exit) {
+      try {
+        await exit.call(document);
+      } catch (e) {}
+    }
   }
   resizeCanvasCSS();
 }
@@ -971,25 +996,31 @@ function exitFullscreenMode() {
 function resizeCanvasCSS() {
   const vvW = window.visualViewport?.width || window.innerWidth;
   const vvH = window.visualViewport?.height || window.innerHeight;
+  const isMobile = "ontouchstart" in window || Math.min(vvW, vvH) < 600;
+  const isLandscape = vvW > vvH;
 
   let cssW, cssH, borderRadius;
 
-  if (isFullscreenMode) {
-    // PLAYING: Contain mode - fits entire game, nothing cut off
-    // Background color matches game so no visible "black bars"
-    const scale = Math.min(vvW / canvas.width, vvH / canvas.height);
-    cssW = Math.floor(canvas.width * scale);
-    cssH = Math.floor(canvas.height * scale);
+  if (isFullscreenMode || (isMobile && isLandscape)) {
+    // FULLSCREEN / MOBILE LANDSCAPE: Fill entire screen
+    cssW = vvW;
+    cssH = vvH;
     borderRadius = "0px";
-  } else {
-    // START/MENU: Contain mode with margins - nicely centered card
-    const margin = Math.min(vvW, vvH) < 500 ? 20 : 40;
+  } else if (!isMobile) {
+    // DESKTOP (not fullscreen): Contain with margins
+    const margin = 40;
     const maxW = vvW - margin * 2;
     const maxH = vvH - margin * 2;
     const scale = Math.min(maxW / canvas.width, maxH / canvas.height);
     cssW = Math.floor(canvas.width * scale);
     cssH = Math.floor(canvas.height * scale);
     borderRadius = "16px";
+  } else {
+    // MOBILE PORTRAIT (start screen): Show rotate prompt handles this
+    // But just in case, fill width
+    cssW = vvW - 32;
+    cssH = Math.floor(cssW * (canvas.height / canvas.width));
+    borderRadius = "12px";
   }
 
   canvas.style.position = "fixed";
@@ -999,7 +1030,7 @@ function resizeCanvasCSS() {
   canvas.style.width = cssW + "px";
   canvas.style.height = cssH + "px";
   canvas.style.borderRadius = borderRadius;
-  canvas.style.boxShadow = isFullscreenMode ? "none" : "0 8px 40px rgba(0,0,0,0.6)";
+  canvas.style.boxShadow = (isFullscreenMode || (isMobile && isLandscape)) ? "none" : "0 8px 40px rgba(0,0,0,0.6)";
 }
 window.addEventListener("resize", resizeCanvasCSS);
 window.addEventListener("orientationchange", resizeCanvasCSS);
