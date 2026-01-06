@@ -28,6 +28,13 @@ const hudLives = document.getElementById("hudLives");
 const hudLevel = document.getElementById("hudLevel");
 const hudHigh = document.getElementById("hudHigh");
 
+// HTML Countdown elements
+const countdownOverlay = document.getElementById("countdownOverlay");
+const countdownNumber = document.getElementById("countdownNumber");
+const countdownLevel = document.getElementById("countdownLevel");
+const countdownReady = document.getElementById("countdownReady");
+const countdownRing = document.getElementById("countdownRing");
+
 // --------------------
 // Game Constants
 // --------------------
@@ -35,6 +42,7 @@ const GAME_STATE = {
   START: "START",
   PLAYING: "PLAYING",
   PAUSED: "PAUSED",
+  COUNTDOWN: "COUNTDOWN",
   GAME_OVER: "GAME_OVER",
   WIN: "WIN",
 };
@@ -164,6 +172,11 @@ let lives = 3;
 let level = 1;
 let highScore = 0;
 const HS_KEY = "bb2_highscore";
+
+// Countdown state
+let countdownValue = 3;
+let countdownTimer = 0;
+const COUNTDOWN_DURATION = 0.8; // seconds per number
 try {
   const savedHS = localStorage.getItem(HS_KEY);
   if (savedHS != null) highScore = parseInt(savedHS, 10) || 0;
@@ -738,6 +751,16 @@ function sfxWin()    {
   setTimeout(() => playTone({ startFreq: 1040, endFreq: 1320, duration: 0.14, type: "sine", peakGain: 0.05, attack: 0.003, decay: 0.06, sustain: 0.35, release: 0.06, wet: 0.28 }), 220);
 }
 
+function playCountdownTick() {
+  // Short beep for countdown
+  playTone({ startFreq: 440, endFreq: 440, duration: 0.08, type: "sine", peakGain: 0.06, attack: 0.005, decay: 0.03, sustain: 0.4, release: 0.04, wet: 0.1 });
+}
+
+function playCountdownGo() {
+  // Higher pitched "GO!" sound
+  playTone({ startFreq: 660, endFreq: 880, duration: 0.15, type: "sine", peakGain: 0.07, attack: 0.005, decay: 0.05, sustain: 0.5, release: 0.05, wet: 0.15 });
+}
+
 // --------------------
 // Level / Bricks
 // --------------------
@@ -828,12 +851,14 @@ function startGame(resetAll = true) {
   buildBricks();
   resetBallOnPaddle();
 
-  state = GAME_STATE.PLAYING;
   setCoverPage(false);
   setOverlay(false);
   setPauseButtonText();
   setPauseOverlayVisible(false);
   updateHUD(); // Immediately show correct values
+  
+  // Start with countdown
+  startCountdown();
 }
 
 function gameOver() {
@@ -858,6 +883,73 @@ function nextLevel() {
   buildBricks();
   resetBallOnPaddle();
   sfxLevel();
+  
+  // Start countdown before playing
+  startCountdown();
+}
+
+function startCountdown() {
+  state = GAME_STATE.COUNTDOWN;
+  countdownValue = 3;
+  countdownTimer = 0;
+  playCountdownTick(); // Play first tick immediately
+  updateCountdownDisplay();
+  setCountdownVisible(true);
+}
+
+function setCountdownVisible(show) {
+  if (countdownOverlay) {
+    countdownOverlay.classList.toggle("visible", show);
+  }
+}
+
+function updateCountdownDisplay() {
+  if (!countdownNumber) return;
+  
+  // Update level text
+  if (countdownLevel) {
+    countdownLevel.textContent = `Level ${level}`;
+  }
+  
+  // Update countdown number with animation
+  if (countdownValue > 0) {
+    countdownNumber.textContent = countdownValue;
+    countdownNumber.className = "countdown-number";
+    // Trigger reflow for animation restart
+    void countdownNumber.offsetWidth;
+    countdownNumber.style.animation = "none";
+    void countdownNumber.offsetWidth;
+    countdownNumber.style.animation = "countdownPulse 0.8s ease-out";
+  }
+  
+  // Update ready text
+  if (countdownReady) {
+    countdownReady.textContent = countdownValue > 0 ? "Get Ready" : "";
+  }
+  
+  // Update progress ring
+  if (countdownRing) {
+    const circumference = 2 * Math.PI * 85; // r=85
+    const progress = countdownTimer / COUNTDOWN_DURATION;
+    const offset = circumference * (1 - progress);
+    countdownRing.style.strokeDasharray = circumference;
+    countdownRing.style.strokeDashoffset = offset;
+  }
+}
+
+function showGoText() {
+  if (!countdownNumber) return;
+  countdownNumber.textContent = "GO!";
+  countdownNumber.className = "countdown-number countdown-go";
+  countdownNumber.style.animation = "none";
+  void countdownNumber.offsetWidth;
+  countdownNumber.style.animation = "goZoom 0.5s ease-out";
+  if (countdownReady) countdownReady.textContent = "";
+  
+  // Hide after a short delay
+  setTimeout(() => {
+    setCountdownVisible(false);
+  }, 400);
 }
 
 // --------------------
@@ -1130,6 +1222,29 @@ resizeCanvasCSS();
 // Update / Physics
 // --------------------
 function update(dt) {
+  // Handle countdown state
+  if (state === GAME_STATE.COUNTDOWN) {
+    countdownTimer += dt;
+    
+    // Update progress ring smoothly
+    updateCountdownDisplay();
+    
+    if (countdownTimer >= COUNTDOWN_DURATION) {
+      countdownTimer = 0;
+      countdownValue--;
+      if (countdownValue <= 0) {
+        state = GAME_STATE.PLAYING;
+        playCountdownGo();
+        showGoText();
+      } else {
+        // Play a tick sound for each number
+        playCountdownTick();
+        updateCountdownDisplay();
+      }
+    }
+    return;
+  }
+  
   if (state !== GAME_STATE.PLAYING) return;
 
   if (missFlashT > 0) missFlashT = Math.max(0, missFlashT - dt);

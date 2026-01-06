@@ -343,6 +343,108 @@
         gap: 12px;
       }
     }
+
+    /* ========== COUNTDOWN OVERLAY ========== */
+    #countdownOverlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 60;
+      pointer-events: none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+    }
+    #countdownOverlay.visible {
+      display: flex;
+    }
+    #countdownOverlay .level-text {
+      font-size: clamp(18px, 4vw, 28px);
+      font-weight: 700;
+      color: #60a5fa;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 10px rgba(96, 165, 250, 0.5);
+    }
+    #countdownOverlay .countdown-number {
+      font-size: clamp(80px, 20vw, 140px);
+      font-weight: 900;
+      color: #ffffff;
+      line-height: 1;
+      text-shadow: 
+        0 0 40px rgba(255, 255, 255, 0.5),
+        0 0 80px rgba(255, 255, 255, 0.3),
+        0 4px 20px rgba(0, 0, 0, 0.5);
+      animation: countdownPulse 0.8s ease-out;
+    }
+    @keyframes countdownPulse {
+      0% { 
+        transform: scale(1.4); 
+        opacity: 0.5;
+      }
+      100% { 
+        transform: scale(1); 
+        opacity: 1;
+      }
+    }
+    #countdownOverlay .countdown-go {
+      font-size: clamp(60px, 15vw, 100px);
+      font-weight: 900;
+      background: linear-gradient(135deg, #22c55e 0%, #4ade80 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: none;
+      filter: drop-shadow(0 0 30px rgba(34, 197, 94, 0.6));
+      animation: goZoom 0.5s ease-out;
+    }
+    @keyframes goZoom {
+      0% { 
+        transform: scale(0.5); 
+        opacity: 0;
+      }
+      50% {
+        transform: scale(1.2);
+      }
+      100% { 
+        transform: scale(1); 
+        opacity: 1;
+      }
+    }
+    #countdownOverlay .ready-text {
+      font-size: clamp(14px, 3vw, 20px);
+      font-weight: 500;
+      color: #9ca3af;
+      margin-top: 16px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    #countdownOverlay .progress-ring {
+      position: absolute;
+      width: clamp(160px, 35vw, 220px);
+      height: clamp(160px, 35vw, 220px);
+    }
+    #countdownOverlay .progress-ring circle {
+      fill: none;
+      stroke-width: 4;
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: center;
+    }
+    #countdownOverlay .progress-ring .bg {
+      stroke: rgba(255, 255, 255, 0.1);
+    }
+    #countdownOverlay .progress-ring .fg {
+      stroke: #60a5fa;
+      stroke-dasharray: 565;
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 0.8s linear;
+      filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.6));
+    }
   </style>
 </head>
 <body>
@@ -412,6 +514,17 @@
     <div class="hud-right">
       <button id="pauseBtn" aria-label="Pause/Resume">Pause</button>
     </div>
+  </div>
+
+  <!-- Countdown Overlay (HTML for crisp text) -->
+  <div id="countdownOverlay">
+    <svg class="progress-ring" viewBox="0 0 180 180">
+      <circle class="bg" cx="90" cy="90" r="85"/>
+      <circle class="fg" id="countdownRing" cx="90" cy="90" r="85"/>
+    </svg>
+    <div class="level-text" id="countdownLevel">Level 1</div>
+    <div class="countdown-number" id="countdownNumber">3</div>
+    <div class="ready-text" id="countdownReady">Get Ready</div>
   </div>
 
   <div id="pauseOverlay">
