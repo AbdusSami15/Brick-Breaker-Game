@@ -16,6 +16,18 @@ const resumeBtn = document.getElementById("resumeBtn");
 const restartBtn = document.getElementById("restartBtn");
 const quitBtn = document.getElementById("quitBtn");
 
+// Cover page elements
+const coverPage = document.getElementById("coverPage");
+const coverStartBtn = document.getElementById("coverStartBtn");
+const pauseBtn = document.getElementById("pauseBtn");
+
+// HTML HUD elements (stays crisp at any size)
+const gameHud = document.getElementById("gameHud");
+const hudScore = document.getElementById("hudScore");
+const hudLives = document.getElementById("hudLives");
+const hudLevel = document.getElementById("hudLevel");
+const hudHigh = document.getElementById("hudHigh");
+
 // --------------------
 // Game Constants
 // --------------------
@@ -398,7 +410,6 @@ function drawPaddleBody(p, style = "P1") {
 }
 
 function setPauseButtonText() {
-  const pauseBtn = document.getElementById("pauseBtn");
   if (!pauseBtn) return;
   pauseBtn.textContent = state === GAME_STATE.PAUSED ? "Resume" : "Pause";
 }
@@ -474,6 +485,19 @@ function setOverlay(show, title, desc, btnText) {
   titleEl.textContent = title ?? "";
   descEl.textContent = desc ?? "";
   btnEl.textContent = btnText ?? "Start";
+}
+
+function setCoverPage(show) {
+  coverPage.style.display = show ? "flex" : "none";
+  if (gameHud) gameHud.classList.toggle("visible", !show);
+}
+
+// Update HTML HUD elements
+function updateHUD() {
+  if (hudScore) hudScore.textContent = score;
+  if (hudLives) hudLives.textContent = lives;
+  if (hudLevel) hudLevel.textContent = level;
+  if (hudHigh) hudHigh.textContent = highScore;
 }
 
 // Simple beep SFX without external files
@@ -805,9 +829,11 @@ function startGame(resetAll = true) {
   resetBallOnPaddle();
 
   state = GAME_STATE.PLAYING;
+  setCoverPage(false);
   setOverlay(false);
   setPauseButtonText();
   setPauseOverlayVisible(false);
+  updateHUD(); // Immediately show correct values
 }
 
 function gameOver() {
@@ -880,10 +906,16 @@ canvas.addEventListener("touchend", () => {
 });
 
 // Optional: Space to start/restart quickly
-window.addEventListener("keydown", (e) => {
+window.addEventListener("keydown", async (e) => {
   if (e.code === "Space") {
-    if (state === GAME_STATE.START) startGame(true);
-    else if (state === GAME_STATE.GAME_OVER || state === GAME_STATE.WIN) startGame(true);
+    if (state === GAME_STATE.START) {
+      ensureAudio();
+      if (audioCtx && audioCtx.state !== "running") await audioCtx.resume();
+      await requestFullscreen();
+      startGame(true);
+    } else if (state === GAME_STATE.GAME_OVER || state === GAME_STATE.WIN) {
+      startGame(true);
+    }
   }
   if (e.code === "ArrowLeft") p1Left = true;
   if (e.code === "ArrowRight") p1Right = true;
@@ -902,26 +934,35 @@ window.addEventListener("keyup", (e) => {
   if (e.code === "ArrowRight") p1Right = false;
 });
 
-// Button overlay
+// In-game overlay button (Play Again after game over/win)
 btnEl.addEventListener("click", async () => {
-  // iOS requires resume on user gesture
   ensureAudio();
   if (audioCtx && audioCtx.state !== "running") await audioCtx.resume();
 
-  if (state === GAME_STATE.START) {
-    requestFullscreen(); // Go fullscreen when starting
-    startGame(true);
-  } else if (state === GAME_STATE.GAME_OVER || state === GAME_STATE.WIN) {
+  if (state === GAME_STATE.GAME_OVER || state === GAME_STATE.WIN) {
     startGame(true);
   }
 });
 
-// Initial overlay
-setOverlay(true, "Breakout", `Press Start. Use mouse/touch to move the paddle.  Best: ${highScore}`, "Start");
+// Initial state: show cover page, hide game UI
+setCoverPage(true);
+setOverlay(false);
 initBackground();
 
-// Pause button
-const pauseBtn = document.getElementById("pauseBtn");
+// Cover page start button - this is the main entry point
+coverStartBtn.addEventListener("click", async () => {
+  // iOS requires resume on user gesture
+  ensureAudio();
+  if (audioCtx && audioCtx.state !== "running") await audioCtx.resume();
+  
+  // Enter fullscreen and lock to landscape
+  await requestFullscreen();
+  
+  // Start the game
+  startGame(true);
+});
+
+// Pause button (reference already at top)
 pauseBtn.addEventListener("click", () => {
   if (state === GAME_STATE.PLAYING) pauseGame();
   else if (state === GAME_STATE.PAUSED) resumeGame();
@@ -940,7 +981,8 @@ quitBtn.addEventListener("click", () => {
   exitFullscreenMode(); // Exit fullscreen when quitting to start
   setPauseOverlayVisible(false);
   setPauseButtonText();
-  setOverlay(true, "Breakout", `Press Start. Use mouse/touch to move the paddle.  Best: ${highScore}`, "Start");
+  setOverlay(false);
+  setCoverPage(true);
 });
 
 // Track if game is in fullscreen playing mode
@@ -1314,7 +1356,7 @@ function draw() {
     let color = "#22c55e";
     let label = "P";
     if (p.type === "WIDE") { color = "#60a5fa"; label = "W"; }
-    else if (p.type === "SPEED") { color = "#fbbf24"; label = "S"; }
+    else if (p.type === "SPEED") { color = "#f97316"; label = "S"; }
     else if (p.type === "MULTI") { color = "#fbbf24"; label = "+"; }
 
     ctx.fillStyle = color;
@@ -1350,24 +1392,8 @@ function draw() {
     ctx.fill();
   }
 
-  // HUD
-  ctx.fillStyle = "#e5e7eb";
-  ctx.font = "16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText(`Score: ${score}`, HUD.padding, 26);
-  ctx.fillText(`Lives: ${lives}`, HUD.padding + 120, 26);
-  ctx.fillText(`Level: ${level}`, HUD.padding + 220, 26);
-  ctx.fillText(`High: ${highScore}`, HUD.padding + 320, 26);
-
-  // Optional hint while playing
-  if (state === GAME_STATE.PLAYING) {
-    ctx.globalAlpha = 0.5;
-    ctx.textAlign = "right";
-    let showSpeed = 0;
-    for (let i = 0; i < balls.length; i++) showSpeed = Math.max(showSpeed, balls[i].speed);
-    ctx.fillText(`Speed: ${Math.round(showSpeed)}`, WORLD.w - HUD.padding, 26);
-    ctx.globalAlpha = 1;
-  }
+  // Update HTML HUD (stays crisp at any size)
+  updateHUD();
 
   if (state === GAME_STATE.PAUSED) {
     ctx.fillStyle = "rgba(0,0,0,0.35)";
